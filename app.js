@@ -2,19 +2,18 @@ import {FilesetResolver, PoseLandmarker} from 'https://cdn.jsdelivr.net/npm/@med
 
 const $=s=>document.querySelector(s);
 const video=$('#video'),canvas=$('#view'),ctx=canvas.getContext('2d',{alpha:false});
-let flavour='green',facing='environment',stream,detector,readyPromise,session=0,active=false,busy=false,raf=0,lastFrame=-1,lastSent=0,pose=null,lastSeen=0,photoUrl,photoBlob;
+const flavour='green';
+let facing='environment',stream,detector,readyPromise,session=0,active=false,busy=false,raf=0,lastFrame=-1,lastSent=0,pose=null,lastSeen=0,photoUrl,photoBlob;
 const images={};
-['green','orange'].forEach(key=>{const img=new Image();img.decoding='async';img.src=`${key}.png`;images[key]=img;});
+['green'].forEach(key=>{const img=new Image();img.decoding='async';img.src=`${key}.png`;images[key]=img;});
 const assetsReady=Promise.resolve();
-function choose(key){flavour=key;document.querySelectorAll('[data-flavour]').forEach(b=>{const yes=b.dataset.flavour===key;b.classList.toggle('selected',yes);b.setAttribute('aria-pressed',yes);});}
-document.querySelectorAll('[data-flavour]').forEach(b=>b.onclick=()=>choose(b.dataset.flavour));
 function status(text){if($('#status').textContent!==text)$('#status').textContent=text;}
 function initDetector(){
  if(readyPromise)return readyPromise;
  readyPromise=(async()=>{
   try{
    const vision=await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm');
-   detector=await PoseLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',delegate:'CPU'},runningMode:'VIDEO',numPoses:1,minPoseDetectionConfidence:.55,minPosePresenceConfidence:.55,minTrackingConfidence:.6});
+   detector=await PoseLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:'./pose_landmarker_lite.task',delegate:'CPU'},runningMode:'VIDEO',numPoses:1,minPoseDetectionConfidence:.55,minPosePresenceConfidence:.55,minTrackingConfidence:.6});
   }catch(error){readyPromise=null;detector=null;throw new Error('Il riconoscimento non si è avviato. Verifica la connessione e apri il link direttamente in Safari o Chrome.');}
  })();
  return readyPromise;
@@ -65,7 +64,7 @@ function draw(time){
   ctx.save();ctx.translate(facing==='user'?canvas.width-pose.x:pose.x,pose.y);ctx.rotate(facing==='user'?-pose.angle:pose.angle);
   ctx.drawImage(images[flavour],-pose.width/2,0,pose.width,pose.height);ctx.restore();status('Sei una Tasb! Mettiti in posa e scatta.');
  }else status('Inquadra una persona intera, dalla testa ai piedi.');
- if(detector&&!busy&&video.currentTime!==lastFrame&&time-lastSent>100){
+ if(detector&&!busy&&video.currentTime!==lastFrame&&time-lastSent>142){
   busy=true;lastFrame=video.currentTime;lastSent=time;
   try{const result=detector.detectForVideo(video,time);updatePose(result.landmarks[0]||null);}catch(error){console.warn('Pose frame non disponibile',error);}finally{busy=false;}
  }
@@ -81,3 +80,4 @@ $('#closeResult').onclick=()=>$('#result').close();
 $('#share').onclick=async()=>{try{await navigator.share({files:[new File([photoBlob],'tic-tasb.jpg',{type:'image/jpeg'})],title:'Ora sono una Tic Tasb!'});}catch(e){if(e.name!=='AbortError')alert('Puoi usare Salva foto e condividerla dalla galleria.');}};
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&active){stop();$('#camera').hidden=true;$('#welcome').hidden=false;}});
 window.addEventListener('pagehide',()=>{stop();if(photoUrl)URL.revokeObjectURL(photoUrl);});
+window.addEventListener('load',()=>setTimeout(()=>initDetector().catch(()=>{}),350),{once:true});

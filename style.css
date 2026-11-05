@@ -68,7 +68,7 @@ h1 { margin: 8px 0; font-size: clamp(2.2rem, 10vw, 3.65rem); line-height: .92; l
 h1 em { color: var(--green); font-style: normal; }
 .lead { margin: 9px 0 18px; line-height: 1.45; }
 
-.flavours { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.flavours { width: min(100%, 250px); display: grid; grid-template-columns: 1fr; gap: 12px; }
 .flavour {
   min-width: 0;
   padding: 10px;
