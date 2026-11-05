@@ -1,6 +1,8 @@
+import {FilesetResolver, PoseLandmarker} from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs';
+
 const $=s=>document.querySelector(s);
 const video=$('#video'),canvas=$('#view'),ctx=canvas.getContext('2d',{alpha:false});
-let flavour='green',facing='environment',stream,worker,readyPromise,session=0,active=false,busy=false,raf=0,lastFrame=-1,lastSent=0,pose=null,lastSeen=0,photoUrl,photoBlob;
+let flavour='green',facing='environment',stream,detector,readyPromise,session=0,active=false,busy=false,raf=0,lastFrame=-1,lastSent=0,pose=null,lastSeen=0,photoUrl,photoBlob;
 const images={};
 const assetsReady=Promise.all(['green','orange'].map(async key=>{const img=new Image();img.src=`${key}.png`;await img.decode();images[key]=img;}));
 function choose(key){flavour=key;document.querySelectorAll('[data-flavour]').forEach(b=>{const yes=b.dataset.flavour===key;b.classList.toggle('selected',yes);b.setAttribute('aria-pressed',yes);});}
@@ -8,17 +10,13 @@ document.querySelectorAll('[data-flavour]').forEach(b=>b.onclick=()=>choose(b.da
 function status(text){if($('#status').textContent!==text)$('#status').textContent=text;}
 function initDetector(){
  if(readyPromise)return readyPromise;
- readyPromise=new Promise((resolve,reject)=>{
-  worker=new Worker(new URL('./pose-worker.js',import.meta.url),{type:'module'});
-  const timer=setTimeout(()=>{worker?.terminate();worker=null;readyPromise=null;reject(new Error('Il caricamento sta impiegando troppo. Controlla la connessione e riprova.'));},90000);
-  worker.onerror=()=>{clearTimeout(timer);worker?.terminate();worker=null;readyPromise=null;reject(new Error('Il riconoscimento non si è avviato. Apri il sito in Safari o Chrome aggiornato e riprova.'));};
-  worker.onmessage=({data})=>{
-   if(data.type==='ready'){clearTimeout(timer);resolve();}
-   if(data.type==='pose'){busy=false;if(data.session===session&&active)updatePose(data.landmarks);}
-   if(data.type==='error'){clearTimeout(timer);busy=false;worker?.terminate();worker=null;readyPromise=null;const e=new Error('Riconoscimento non disponibile. Controlla la connessione e riprova.');reject(e);if(active){stop();$('#welcome').hidden=false;$('#camera').hidden=true;alert(e.message);}}
-  };
-  worker.postMessage({type:'init'});
- });return readyPromise;
+ readyPromise=(async()=>{
+  try{
+   const vision=await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm');
+   detector=await PoseLandmarker.createFromOptions(vision,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',delegate:'CPU'},runningMode:'VIDEO',numPoses:1,minPoseDetectionConfidence:.55,minPosePresenceConfidence:.55,minTrackingConfidence:.6});
+  }catch(error){readyPromise=null;detector=null;throw new Error('Il riconoscimento non si è avviato. Verifica la connessione e apri il link direttamente in Safari o Chrome.');}
+ })();
+ return readyPromise;
 }
 function stop(){active=false;session++;cancelAnimationFrame(raf);stream?.getTracks().forEach(t=>t.stop());stream=null;video.srcObject=null;pose=null;lastSeen=0;$('#shoot').disabled=true;}
 async function openCamera(){
@@ -66,9 +64,9 @@ function draw(time){
   ctx.save();ctx.translate(facing==='user'?canvas.width-pose.x:pose.x,pose.y);ctx.rotate(facing==='user'?-pose.angle:pose.angle);
   ctx.drawImage(images[flavour],-pose.width/2,0,pose.width,pose.height);ctx.restore();status('Sei una Tasb! Mettiti in posa e scatta.');
  }else status('Inquadra una persona intera, dalla testa ai piedi.');
- if(worker&&!busy&&video.currentTime!==lastFrame&&time-lastSent>90){
-  busy=true;lastFrame=video.currentTime;lastSent=time;const currentSession=session;
-  createImageBitmap(video).then(bitmap=>{if(!active||currentSession!==session||!worker){bitmap.close();busy=false;return;}worker.postMessage({type:'frame',bitmap,time:performance.now(),session:currentSession},[bitmap]);}).catch(()=>{busy=false;});
+ if(detector&&!busy&&video.currentTime!==lastFrame&&time-lastSent>100){
+  busy=true;lastFrame=video.currentTime;lastSent=time;
+  try{const result=detector.detectForVideo(video,time);updatePose(result.landmarks[0]||null);}catch(error){console.warn('Pose frame non disponibile',error);}finally{busy=false;}
  }
  raf=requestAnimationFrame(draw);
 }
