@@ -4,7 +4,8 @@ const $=s=>document.querySelector(s);
 const video=$('#video'),canvas=$('#view'),ctx=canvas.getContext('2d',{alpha:false});
 let flavour='green',facing='environment',stream,detector,readyPromise,session=0,active=false,busy=false,raf=0,lastFrame=-1,lastSent=0,pose=null,lastSeen=0,photoUrl,photoBlob;
 const images={};
-const assetsReady=Promise.all(['green','orange'].map(async key=>{const img=new Image();img.src=`${key}.png`;await img.decode();images[key]=img;}));
+['green','orange'].forEach(key=>{const img=new Image();img.decoding='async';img.src=`${key}.png`;images[key]=img;});
+const assetsReady=Promise.resolve();
 function choose(key){flavour=key;document.querySelectorAll('[data-flavour]').forEach(b=>{const yes=b.dataset.flavour===key;b.classList.toggle('selected',yes);b.setAttribute('aria-pressed',yes);});}
 document.querySelectorAll('[data-flavour]').forEach(b=>b.onclick=()=>choose(b.dataset.flavour));
 function status(text){if($('#status').textContent!==text)$('#status').textContent=text;}
