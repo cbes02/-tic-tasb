@@ -21,7 +21,7 @@ function initDetector(){
 function stop(){active=false;session++;cancelAnimationFrame(raf);stream?.getTracks().forEach(t=>t.stop());stream=null;video.srcObject=null;pose=null;lastSeen=0;$('#shoot').disabled=true;}
 async function openCamera(){
  if(!navigator.mediaDevices?.getUserMedia)throw new Error('La fotocamera richiede un sito HTTPS aperto in Safari o Chrome.');
- stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:facing},width:{ideal:720},height:{ideal:1280}}});
+ stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:facing},width:{ideal:960},height:{ideal:1280},aspectRatio:{ideal:.75}}});
  video.srcObject=stream;await video.play();
  canvas.width=video.videoWidth;canvas.height=video.videoHeight;
  active=true;lastFrame=-1;lastSent=0;pose=null;lastSeen=0;session++;draw(performance.now());
